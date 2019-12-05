@@ -1,1 +1,6 @@
 TransversalProjectSimulator
+
+Contributors
+
+
+DISCLAIMER
