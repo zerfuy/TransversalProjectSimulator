@@ -18,7 +18,7 @@ public class PostgreSQLJDBC {
 	         System.err.println(e.getClass().getName()+": "+e.getMessage());
 	         System.exit(0);
 	      }
-	      System.out.println("Opened database successfully");
+	      System.out.printf("Opened database %s successfully \n", url);
 	}
 
 	public Connection getConnection() {
