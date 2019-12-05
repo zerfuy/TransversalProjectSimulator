@@ -1,6 +1,10 @@
 package controller;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 
 import model.PostgreSQLJDBC;
 
@@ -18,6 +22,24 @@ public class Simulation {
 		
 		System.out.println("Simulation initialized successfully");
 		
+		// Variable initializations are to be done here
+		String query = "select * from fire";
+		ResultSet rs = null;
+		
+		
+		try {
+			PreparedStatement pst = SimulatorConnection.prepareStatement(query);
+			rs = pst.executeQuery();
+			if (rs.next()) {
+				 ResultSetMetaData rsmd = rs.getMetaData();
+	            System.out.printf("got the following results : %s : %s, %s : %s, %s : %s", 
+	            		rsmd.getColumnLabel(1), rs.getString(1), 
+	            		rsmd.getColumnLabel(2), rs.getString(2), 
+	            		rsmd.getColumnLabel(3), rs.getString(3));
+	        }
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
 	}
 }
 
