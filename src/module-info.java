@@ -6,4 +6,5 @@
  *
  */
 module transversalProjectSimulator {
+	requires java.sql;
 }
