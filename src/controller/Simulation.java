@@ -27,8 +27,7 @@ public class Simulation {
 		Timer timer = new Timer();
 		timer.schedule(new fireTimer(), 0, 5000);
 		
-		
-		
+		timer.schedule(new fireEngineTimer(), 0, 5000);
 		
 	}
 }
