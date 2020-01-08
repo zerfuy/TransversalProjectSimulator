@@ -88,6 +88,7 @@ public class fireTimer extends TimerTask {
 			
 			for(Sensor sensor : activeSimSensors){
 				// update handled values
+				// TODO add "AND sensor.hasFireEnginesOnScene
 				if(sensor.getIntensity() > 0) {
 					if(sensor.getHandled() > 0) {
 						if(sensor.getHandled() >= sensor.getIntensity()) {
