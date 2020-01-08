@@ -3,7 +3,6 @@ package model;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.Random;
 
 public class Sensor {
 
@@ -11,7 +10,10 @@ public class Sensor {
 	private double x;
 	private double y;
 	private int intensity;
+	private float precise_intensity;
 	private int handled;
+	private String UpdateQuery = "UPDATE fire SET intensity = ?, precise_intensity = ? WHERE id = ?";;
+	private Connection conn;
 	
 	public Sensor(int id, double x, double y, int intensity, int handled) {
 		super();
@@ -22,10 +24,11 @@ public class Sensor {
 		this.handled = handled;
 	}
 
-	public Sensor(int id2, int intensity) {
+	public Sensor(int id, int intensity,  float precise_intensity) {
 		super();
-		this.id = id2;
+		this.id = id;
 		this.intensity = intensity;
+		this.precise_intensity = precise_intensity;
 	}
 
 	public int getId() {
@@ -59,6 +62,15 @@ public class Sensor {
 	public void setIntensity(int intensity) {
 		this.intensity = intensity;
 	}
+	
+	public float getPreciseIntensity() {
+		return precise_intensity;
+	}
+
+	public void setPreciseIntensity(float precise_intensity) {
+		this.precise_intensity = precise_intensity;
+		this.intensity = (int) precise_intensity;
+	}
 
 	public int getHandled() {
 		return handled;
@@ -68,28 +80,34 @@ public class Sensor {
 		this.handled = handled;
 	}
 	
-	public void updateIntensity(Connection conn) {
-		String UpdateQuery = "UPDATE fire SET intensity = ? WHERE id = ?";
+	public Connection getConn() {
+		return this.conn;
+	}
+	
+	public void setConn(Connection conn) {
+		this.conn = conn;
+	}
+	
+	public void updateIntensity() {
 		
 		try {
 			
-			PreparedStatement pst = conn.prepareStatement(UpdateQuery);
-			int id = new Random().nextInt(59);
+			PreparedStatement pst = this.conn.prepareStatement(this.UpdateQuery);
 			pst.setInt(1, this.getIntensity());
-			pst.setInt(2, this.getId());
-			System.out.println(pst.toString());
+			pst.setFloat(2, this.getPreciseIntensity());
+			pst.setInt(3, this.getId());
 			pst.executeUpdate();
-			conn.close();
-			System.out.println("Intensity update completed successfully");
-	        }
-		catch (SQLException e) {
+			System.out.println("\tIntensity update completed successfully: sensor " + this.getId() + " set to " + this.getPreciseIntensity());
+			
+		} catch (SQLException e) {
 			e.printStackTrace();
 		}
 	}
 
 	@Override
 	public String toString() {
-		return "Sensor [id=" + id + ", x=" + x + ", y=" + y + ", intensity=" + intensity + ", handled=" + handled + "]";
+		return "Sensor [id=" + id + ", x=" + x + ", y=" + y + ", intensity=" + intensity + ", precise_intensity="
+				+ precise_intensity + ", handled=" + handled + "]";
 	}
 	
 }

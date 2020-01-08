@@ -13,49 +13,77 @@ import model.PostgreSQLJDBC;
 import model.Sensor;
 
 public class fireTimer extends TimerTask {
+
+	int fireFrequency = 120;
+	int fireRange = 9;
+	int fireFluctuation = 14;
 	
-	int fireFactor = 1;
+	int debug = 0;
 	Random rand = new Random();
+	List<Sensor> emSensors;
+	List<Sensor> simSensors;
+	Connection SimulatorConnection;
+	Connection EmergencyManagerConnection;
 	
 	public void run() {
-		Connection SimulatorConnection = 
+		SimulatorConnection = 
 				new PostgreSQLJDBC("jdbc:postgresql://manny.db.elephantsql.com:5432/", 
 						"juynhvrm", 
 						"H-FZ4Jrenwgd_c2Xzte7HLsYJzB_6q5D").getConnection();
 		
-		String getSimActiveSensorsQuery = "select id, intensity from fire";
 		
-		Connection EmergencyManagerConnection = 
+		
+		EmergencyManagerConnection = 
 				new PostgreSQLJDBC("jdbc:postgresql://manny.db.elephantsql.com:5432/", 
 						"ngcbqvhq", 
 						"Ppjleq3n6HQF5qPheDze2QFzG4LHxTAf").getConnection();
 		
-		String getEmActiveSensorsQuery = "select f.id, f.intensity, f.handled, p.real_x, p.real_y from fire f join real_pos p on f.id_real_pos = p.id";
-
+		System.out.println();
+		
+		// Getting sensors (from sim db with em db for additionnal data)
+		this.getSensors();
+		
+		// Fire manipulation
+		this.updateSensors();
+		
 		try {
+			
+			System.out.printf("Closing database... ");
+			SimulatorConnection.close();
+			System.out.println("Closed ");
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+    }
+	
+	private void getSensors() {
+		
+		simSensors = new ArrayList<>();
+		emSensors = new ArrayList<>();
+		
+		try {
+			
 			// Get Sensors from Sim
+			String getSimActiveSensorsQuery = "select id, intensity, precise_intensity from fire";
 			PreparedStatement pstSimActiveSensors = SimulatorConnection.prepareStatement(getSimActiveSensorsQuery);
 			ResultSet resultSetSimActiveSensors = pstSimActiveSensors.executeQuery();
 			
-			SimulatorConnection.close();
-			
-			List<Sensor> activeSimSensors = new ArrayList<>();
-			
-			while (resultSetSimActiveSensors.next()) {
-				
+			while (resultSetSimActiveSensors.next()) {		
 				int id = Integer.parseInt(resultSetSimActiveSensors.getString("id"));
 				int intensity = Integer.parseInt(resultSetSimActiveSensors.getString("intensity"));
+				float precise_intensity = Float.parseFloat(resultSetSimActiveSensors.getString("precise_intensity"));
 				
-				activeSimSensors.add(new Sensor(id, intensity));
+				simSensors.add(new Sensor(id, intensity, precise_intensity));
 			}
 			
 			// Get Sensors from Em, keep their intensities
+			String getEmActiveSensorsQuery = "select f.id, f.intensity, f.handled, p.real_x, p.real_y from fire f join real_pos p on f.id_real_pos = p.id";
 			PreparedStatement pstEmActiveSensors = EmergencyManagerConnection.prepareStatement(getEmActiveSensorsQuery);
 			ResultSet resultSetEmActiveSensors = pstEmActiveSensors.executeQuery();
 			
 			EmergencyManagerConnection.close();
-			
-			List<Sensor> activeEmSensors = new ArrayList<>();
 			
 			while (resultSetEmActiveSensors.next()) {
 				int id = Integer.parseInt(resultSetEmActiveSensors.getString("id"));
@@ -63,62 +91,118 @@ public class fireTimer extends TimerTask {
 				double y = Double.parseDouble(resultSetEmActiveSensors.getString("real_y"));
 				int intensity = Integer.parseInt(resultSetEmActiveSensors.getString("intensity"));
 				int handled = Integer.parseInt(resultSetEmActiveSensors.getString("handled"));
-				
-				activeEmSensors.add(new Sensor(id, x, y, intensity, handled));
-			}
-
-			for(Sensor sensor : activeSimSensors){
-				for(Sensor sensorEm : activeEmSensors) {
-					// update handled values while keeping the simulated intensity (which reflects reality).
-					// display a warming if intensities differ.
-					if(sensor.getId() == sensorEm.getId()) {
-						System.out.println("match : ");
-						System.out.println(sensor.toString());
-						System.out.println(sensorEm.toString());
-						sensor.setHandled(sensorEm.getHandled());
-						sensor.setX(sensorEm.getX());
-						sensor.setY(sensorEm.getY());
-//						if(sensor.getIntensity() != sensorEm.getIntensity()) {
-//							System.out.println("WARNING - Simulated and accounted intensities differ.");
-//						}
-					}
-				}
-			}
-			System.out.println(activeSimSensors.toString());
-			
-			for(Sensor sensor : activeSimSensors){
-				// update handled values
-				// TODO add "AND sensor.hasFireEnginesOnScene
-				if(sensor.getIntensity() > 0) {
-					if(sensor.getHandled() > 0) {
-						if(sensor.getHandled() >= sensor.getIntensity()) {
-							//  reduce intensity
-							sensor.setIntensity(sensor.getIntensity() - fireFactor);
-						} else {
-							// quarter intensity increase speed
-							sensor.setIntensity(sensor.getIntensity() + fireFactor/4);
-						}
-					} else {
-						// increase intensity
-						sensor.setIntensity(sensor.getIntensity() + fireFactor/4);
-					}
-				} else {
-					// 1/120 chance for it to start
-					if(rand.nextInt(120) == 1) {
-						sensor.setIntensity(rand.nextInt(9));
-					}
-				}
-				// call updateIntensity
-				Connection updateConn = 
-						new PostgreSQLJDBC("jdbc:postgresql://manny.db.elephantsql.com:5432/", 
-								"juynhvrm", 
-								"H-FZ4Jrenwgd_c2Xzte7HLsYJzB_6q5D").getConnection();
-				sensor.updateIntensity(updateConn); // auto closes connection
+		
+				emSensors.add(new Sensor(id, x, y, intensity, handled));
 			}
 			
-			
-		}catch (Exception e) {
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-    }
+		
+		System.out.println("Got all sim & em sensors ( " + emSensors.size() + " & " + simSensors.size() + " )");
+
+		for(Sensor sensor : simSensors){
+			Sensor s = null;
+			for(Sensor sensorEm : emSensors) {
+				// update handled values while keeping the simulated intensity (which reflects reality).
+				if(sensor.getId() == sensorEm.getId()) {
+					sensor.setHandled(sensorEm.getHandled());
+					sensor.setX(sensorEm.getX());
+					sensor.setY(sensorEm.getY());
+					s = sensorEm;
+					break;
+				}
+			}
+			emSensors.remove(s);
+			
+			if(debug>0) {
+				System.out.println("Sensor: " + sensor.getId() + ", Fire: " + sensor.getHandled() + "/" + sensor.getIntensity());
+			}
+			
+			sensor.setConn(SimulatorConnection);
+		}
+		System.out.println();
+		
+	}
+	
+	private void updateSensors() {
+		
+		try {
+			
+			for(Sensor sensor : simSensors){
+				
+				
+				System.out.println("Managing sensor " + sensor.getId() + " with precise_intensity of " + sensor.getPreciseIntensity());
+				
+				// update handled values
+				// TODO add "AND sensor.hasFireEnginesOnScene
+				
+				boolean update = false;
+				
+				if(sensor.getIntensity() > 0 ) { // Fire ongoing
+					System.out.println("\tFire is ongoing");
+					
+					int rankValue = this.getRankOnSite(sensor);
+					float fireIntensity = sensor.getPreciseIntensity();
+					
+					sensor.setPreciseIntensity(this.getNewIntensity(rankValue, fireIntensity));
+					update = true;
+					
+					
+				} else { // No fire ongoing
+					System.out.println("\tNo fire is ongoing");
+					
+					// Generate fire at random
+					if(rand.nextInt(this.fireFrequency) == 1) {
+						int intensity = this.getRandomFireValue();
+						sensor.setPreciseIntensity(intensity);
+						
+						System.out.println("\tNew fire generated with value " + intensity);
+						update = true;
+					}
+				}
+				if(update) {
+					// Update the simulated sensor value if necessary
+					sensor.updateIntensity();
+				}	
+				System.out.println();
+			}			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+	}
+
+	private int getRandomFireValue() {
+		
+		return rand.nextInt(this.fireRange);
+		
+	}
+	
+	private int getRankOnSite(Sensor sensor) {
+		return sensor.getHandled();
+	}
+	
+	private float getNewIntensity(int rankValue, float oldFireIntensity) {
+		
+		float intensity = oldFireIntensity - (float)rankValue / 10;
+		
+		System.out.printf("\tOld intensity: " + oldFireIntensity + ", rankValue: " + rankValue);
+		
+		if(intensity > 0) {
+			float randFluctuation = ((float)rand.nextInt(this.fireFluctuation) - (float)this.fireFluctuation / 2)/10;
+			intensity = intensity + randFluctuation;
+			
+			System.out.printf(", randFluctuation: " + randFluctuation);
+		}
+		
+		intensity = intensity >= 0 ? intensity : 0;
+		intensity = intensity <= 9 ? intensity : 9;
+		
+		System.out.println(", New intensity: " + intensity);
+		
+		return intensity;
+	}
+	
 }

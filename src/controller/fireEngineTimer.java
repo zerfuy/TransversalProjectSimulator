@@ -29,8 +29,9 @@ public class fireEngineTimer extends TimerTask {
 			// format info
 			PreparedStatement pst = EMConnection.prepareStatement(Query);
 			ResultSet resultSet = pst.executeQuery();
-
+			
 			while (resultSet.next()) {
+				
 				int id = Integer.parseInt(resultSet.getString("id"));
 				String tpRoute = resultSet.getString("route");
 				EncodedPolyline a = new EncodedPolyline(tpRoute);
@@ -40,7 +41,7 @@ public class fireEngineTimer extends TimerTask {
 				double y_pos = Double.parseDouble(resultSet.getString("y_pos"));
 				// TODO : update fire_engine pos, according to it's speed & it's route.
 				// route calculation is done by the EM manager webserver
-				
+				System.out.println(route);
 				String UpdateQuery = "UPDATE fire_engine SET x_pos = ?, y_pos = ? WHERE id = ?";
 	
 				PreparedStatement pstUpdate = EMConnection.prepareStatement(UpdateQuery);
@@ -68,9 +69,10 @@ public class fireEngineTimer extends TimerTask {
 				pstUpdate.executeUpdate();
 				System.out.println("route.size() : " + route.size());
 				System.out.println("pstUpdate : " + pstUpdate);
-				
-				EMConnection.close();
+
 			}
+			
+			EMConnection.close();
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
