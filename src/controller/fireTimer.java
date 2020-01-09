@@ -26,35 +26,44 @@ public class fireTimer extends TimerTask {
 	Connection EmergencyManagerConnection;
 	
 	public void run() {
-		SimulatorConnection = 
-				new PostgreSQLJDBC("jdbc:postgresql://manny.db.elephantsql.com:5432/", 
-						"juynhvrm", 
-						"H-FZ4Jrenwgd_c2Xzte7HLsYJzB_6q5D").getConnection();
 		
-		
-		
-		EmergencyManagerConnection = 
-				new PostgreSQLJDBC("jdbc:postgresql://manny.db.elephantsql.com:5432/", 
-						"ngcbqvhq", 
-						"Ppjleq3n6HQF5qPheDze2QFzG4LHxTAf").getConnection();
-		
-		System.out.println();
-		
-		// Getting sensors (from sim db with em db for additionnal data)
-		this.getSensors();
-		
-		// Fire manipulation
-		this.updateSensors();
 		
 		try {
 			
-			System.out.printf("Closing database... ");
-			SimulatorConnection.close();
-			System.out.println("Closed ");
+			PostgreSQLJDBC postgreSQLJDBCSim = new PostgreSQLJDBC("jdbc:postgresql://manny.db.elephantsql.com:5432/", 
+					"juynhvrm", 
+					"H-FZ4Jrenwgd_c2Xzte7HLsYJzB_6q5D");
+			
+			SimulatorConnection = postgreSQLJDBCSim.getConnection();
+			
+			PostgreSQLJDBC postgreSQLJDBCEM = new PostgreSQLJDBC("jdbc:postgresql://manny.db.elephantsql.com:5432/", 
+					"ngcbqvhq", 
+					"Ppjleq3n6HQF5qPheDze2QFzG4LHxTAf");
+			
+			EmergencyManagerConnection = postgreSQLJDBCEM.getConnection();
+			
+			if(postgreSQLJDBCSim.hasConnection() && postgreSQLJDBCEM.hasConnection()) {
+				System.out.println();
+				
+				// Getting sensors (from sim db with em db for additionnal data)
+				this.getSensors();
+				
+				// Fire manipulation
+				this.updateSensors();
+				
+				System.out.printf("Closing conection with " + postgreSQLJDBCSim.getUser() + "... ");
+				SimulatorConnection.close();
+				System.out.println("Closed");
+				System.out.printf("Closing conection with " + postgreSQLJDBCEM.getUser() + "... ");
+				EmergencyManagerConnection.close();
+				System.out.println("Closed");
+			}		
 			
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+		
+		System.out.println("/*******************************************************/");
 		
     }
 	
@@ -191,7 +200,7 @@ public class fireTimer extends TimerTask {
 		System.out.printf("\tOld intensity: " + oldFireIntensity + ", rankValue: " + rankValue);
 		
 		if(intensity > 0) {
-			float randFluctuation = ((float)rand.nextInt(this.fireFluctuation) - (float)this.fireFluctuation / 2)/10;
+			float randFluctuation = ((float)rand.nextInt(this.fireFluctuation) - (float)this.fireFluctuation / 2)/9;
 			intensity = intensity + randFluctuation;
 			
 			System.out.printf(", randFluctuation: " + randFluctuation);

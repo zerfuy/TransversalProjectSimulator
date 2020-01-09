@@ -24,7 +24,7 @@ public class Sensor {
 		this.handled = handled;
 	}
 
-	public Sensor(int id, int intensity,  float precise_intensity) {
+	public Sensor(int id, int intensity, float precise_intensity) {
 		super();
 		this.id = id;
 		this.intensity = intensity;
@@ -69,7 +69,10 @@ public class Sensor {
 
 	public void setPreciseIntensity(float precise_intensity) {
 		this.precise_intensity = precise_intensity;
-		this.intensity = (int) precise_intensity;
+		this.intensity = Math.round(precise_intensity);
+		if(this.intensity == 0) {
+			this.intensity = precise_intensity == 0 ? 0 : 1;
+		}
 	}
 
 	public int getHandled() {
