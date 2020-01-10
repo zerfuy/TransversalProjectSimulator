@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.TimerTask;
 
+import model.FireEngine;
 import model.PostgreSQLJDBC;
 import model.Sensor;
 
@@ -18,10 +19,11 @@ public class fireTimer extends TimerTask {
 	int fireRange = 9;
 	int fireFluctuation = 14;
 	
-	int debug = 0;
+	int debug = 1;
 	Random rand = new Random();
 	List<Sensor> emSensors;
 	List<Sensor> simSensors;
+	List<FireEngine> fireEngines;
 	Connection SimulatorConnection;
 	Connection EmergencyManagerConnection;
 	
@@ -48,6 +50,9 @@ public class fireTimer extends TimerTask {
 				// Getting sensors (from sim db with em db for additionnal data)
 				this.getSensors();
 				
+				// Getting fire engines from em db
+				this.getFireEngines();
+				
 				// Fire manipulation
 				this.updateSensors();
 				
@@ -66,6 +71,40 @@ public class fireTimer extends TimerTask {
 		System.out.println("/*******************************************************/");
 		
     }
+	
+	private void getFireEngines() {
+		
+		fireEngines = new ArrayList<>();
+		
+		try {
+			
+			// Get busy fire engines from EM
+			String getBusyFireEnginesQuery = "select id, rank, x_pos, y_pos from fire_engine where busy = true";
+			PreparedStatement pstBusyFireEngines = EmergencyManagerConnection.prepareStatement(getBusyFireEnginesQuery);
+			ResultSet resultSetBusyFireEngines = pstBusyFireEngines.executeQuery();
+			
+			while (resultSetBusyFireEngines.next()) {		
+				int id = Integer.parseInt(resultSetBusyFireEngines.getString("id"));
+				int rank = Integer.parseInt(resultSetBusyFireEngines.getString("rank"));
+				double x = Double.parseDouble(resultSetBusyFireEngines.getString("x_pos"));
+				double y = Double.parseDouble(resultSetBusyFireEngines.getString("y_pos"));
+				
+				fireEngines.add(new FireEngine(id, rank, x, y));
+			}
+			
+		}  catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		System.out.println("Got all busy fire engines (" + fireEngines.size() + ")");
+		if(debug>0) {
+			for(FireEngine fireEngine : fireEngines) {
+				System.out.println("\t" + fireEngine);
+			}
+		}
+		System.out.println();
+		
+	}
 	
 	private void getSensors() {
 		
@@ -92,8 +131,6 @@ public class fireTimer extends TimerTask {
 			PreparedStatement pstEmActiveSensors = EmergencyManagerConnection.prepareStatement(getEmActiveSensorsQuery);
 			ResultSet resultSetEmActiveSensors = pstEmActiveSensors.executeQuery();
 			
-			EmergencyManagerConnection.close();
-			
 			while (resultSetEmActiveSensors.next()) {
 				int id = Integer.parseInt(resultSetEmActiveSensors.getString("id"));
 				double x = Double.parseDouble(resultSetEmActiveSensors.getString("real_x"));
@@ -105,7 +142,6 @@ public class fireTimer extends TimerTask {
 			}
 			
 		} catch (SQLException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		
@@ -125,8 +161,8 @@ public class fireTimer extends TimerTask {
 			}
 			emSensors.remove(s);
 			
-			if(debug>0) {
-				System.out.println("Sensor: " + sensor.getId() + ", Fire: " + sensor.getHandled() + "/" + sensor.getIntensity());
+			if(debug>0 && sensor.getIntensity() > 0) {
+				System.out.println("Sensor: " + sensor.getId() + ", Fire: " + sensor.getHandled() + "/" + sensor.getIntensity() + ", Pos : " + sensor.getX() + " - " + sensor.getY());
 			}
 			
 			sensor.setConn(SimulatorConnection);
@@ -144,9 +180,6 @@ public class fireTimer extends TimerTask {
 				
 				System.out.println("Managing sensor " + sensor.getId() + " with precise_intensity of " + sensor.getPreciseIntensity());
 				
-				// update handled values
-				// TODO add "AND sensor.hasFireEnginesOnScene
-				
 				boolean update = false;
 				
 				if(sensor.getIntensity() > 0 ) { // Fire ongoing
@@ -156,6 +189,9 @@ public class fireTimer extends TimerTask {
 					float fireIntensity = sensor.getPreciseIntensity();
 					
 					sensor.setPreciseIntensity(this.getNewIntensity(rankValue, fireIntensity));
+					if(sensor.getIntensity() == 0) {
+						System.out.println("\tFire extinguished !");
+					}
 					update = true;
 					
 					
@@ -171,6 +207,7 @@ public class fireTimer extends TimerTask {
 						update = true;
 					}
 				}
+				
 				if(update) {
 					// Update the simulated sensor value if necessary
 					sensor.updateIntensity();
@@ -190,17 +227,29 @@ public class fireTimer extends TimerTask {
 	}
 	
 	private int getRankOnSite(Sensor sensor) {
-		return sensor.getHandled();
+		
+		int rank = 0;
+		
+		for(FireEngine fireEngine : fireEngines) {
+			if(sensor.isOnSite(fireEngine)) {
+				rank += fireEngine.getRank();
+			}
+		}
+		
+		System.out.println("\tFire " + sensor.getId() + " has rank " + rank + " on site");
+		
+		return rank;
 	}
 	
 	private float getNewIntensity(int rankValue, float oldFireIntensity) {
 		
-		float intensity = oldFireIntensity - (float)rankValue / 10;
+		float rankFireVariation = (float)rankValue / 10;
+		float intensity = oldFireIntensity - rankFireVariation;
 		
-		System.out.printf("\tOld intensity: " + oldFireIntensity + ", rankValue: " + rankValue);
+		System.out.printf("\tOld intensity: " + oldFireIntensity + ", rankFireVariation: " + rankFireVariation);
 		
 		if(intensity > 0) {
-			float randFluctuation = ((float)rand.nextInt(this.fireFluctuation) - (float)this.fireFluctuation / 2)/9;
+			float randFluctuation = ((float)rand.nextInt(this.fireFluctuation) - (float)this.fireFluctuation / 2) / (9*9) * oldFireIntensity;
 			intensity = intensity + randFluctuation;
 			
 			System.out.printf(", randFluctuation: " + randFluctuation);

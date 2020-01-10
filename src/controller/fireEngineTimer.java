@@ -23,13 +23,6 @@ public class fireEngineTimer extends TimerTask {
 	private List<Intervention> interventions;
 	
 	public void run() {
-		
-		// TODO : check si pos camion = first ou alors donner avancement du camion dans la db simu ?
-		
-		
-				// TODO : update fire_engine pos, according to it's speed & it's route.
-				// route calculation is done by the EM manager webserver
-				/*System.out.println(route);*/
 
 		try {
 			
@@ -63,14 +56,7 @@ public class fireEngineTimer extends TimerTask {
 		}
 
 		System.out.println("/*******************************************************/");
-		
-//		String polyline = "ejmvG{yz\\jC_ACUk@oC{@iBGOg@cAKa@BA?ABC?G?EAERQfAyADHDBJ@NNJTT`AdAxGH\\FTJVl@pAdBlDHNDNFNBRBPRjCF|B?z@Sf@KPKBMGCGY_@i@aAU[}@w@_@c@CUC_@DI?K?KAIEIIEIAIDGHCH?J?HMRYh@_AhCQ`@OVSX{@rAgGlI}CpDkE|E}G~HuE|FwApBwApBqAxBw@zAs@tAi@jAYn@Wv@Wv@Ol@Mj@Q|@OdAGd@Eh@E`@Cd@ElAClA?fADfAFzAJpANfAL|@Hh@Np@`@bB^zAHp@Z|AJh@PjALfADVDVNj@Lz@Px@Ll@p@vCTf@^p@L\\?L@LBJBHBHDHFDDDFBHBH?J?BADCFEFEDIDIBI@E@K@K?M?KCKAK?K?K@MBIBKDIDIBEHMBQBS?Q?KAIAMAMGSGUKUKMIKOSQSSQSQWQUOUMSKWIQGWGYG[E[AW?M?a@Bi@DUDYFKBSFOBSBO@OAMCMIIGIIKMIMEQEOESEWIg@G[G]G?GAGBGDAFC~@ElA?V@ZDVDPBBHRJTNPLLNHNFKz@k@Q_AIUA_@CA?qCs@I?I@IBuAbAiAf@MBYDE@a@BA?g@AE@C?C@qA^G@GDEBg@f@wAdBW\\IFIFiEnBC@iAbAEFwGdLMkE?o@?C?_@@I";
-//		
-//		EncodedPolyline a = new EncodedPolyline(polyline);
-//		
-//		List<LatLng> route = a.decodePath();
-//		
-//		System.out.println(route);
+
     }
 	
 	private void getInterventions() {
@@ -97,27 +83,28 @@ public class fireEngineTimer extends TimerTask {
 				
 			}
 			
-			String q = SimFireEngineQuery + String.join(",", fireEngineIds) + ")";
-			
-			PreparedStatement pstSim = SimConnection.prepareStatement(q);
-			ResultSet resultSetSim = pstSim.executeQuery();
-			
-			while (resultSetSim.next()) {
+			if(fireEngineIds.size()>0) {
+				String q = SimFireEngineQuery + String.join(",", fireEngineIds) + ")";
+				PreparedStatement pstSim = SimConnection.prepareStatement(q);
+				ResultSet resultSetSim = pstSim.executeQuery();
 				
-				int id = Integer.parseInt(resultSetSim.getString("id"));
-				String route = resultSetSim.getString("route");
-				int step = Integer.parseInt(resultSetSim.getString("step"));
-				
-				if(route.length() > 1) {
-					for(Intervention intervention : interventions) {
-						if (intervention.getId() == id) {
-							intervention.setRoute(route);
-							intervention.setStep(step);
-							break;
+				while (resultSetSim.next()) {
+					
+					int id = Integer.parseInt(resultSetSim.getString("id"));
+					String route = resultSetSim.getString("route");
+					int step = Integer.parseInt(resultSetSim.getString("step"));
+					
+					if(route.length() > 1) {
+						for(Intervention intervention : interventions) {
+							if (intervention.getId() == id) {
+								intervention.setRoute(route);
+								intervention.setStep(step);
+								break;
+							}
 						}
 					}
+					
 				}
-				
 			}
 			
 			System.out.println("Got all interventions (" + interventions.size() + ")");
@@ -150,8 +137,8 @@ public class fireEngineTimer extends TimerTask {
 					lat = intervention.getRoute().get(intervention.getSpeed() * intervention.getStep()).lat;
 					lng = intervention.getRoute().get(intervention.getSpeed() * intervention.getStep()).lng;
 				} else {
-					lat = intervention.getRoute().get(intervention.getRoute().size()).lat;
-					lng = intervention.getRoute().get(intervention.getRoute().size()).lng;
+					lat = intervention.getRoute().get(intervention.getRoute().size()-1).lat;
+					lng = intervention.getRoute().get(intervention.getRoute().size()-1).lng;
 				}
 				System.out.println("Fire engine " + intervention.getId() + "\n\tlat: " + lat + ", lng: " + lng + "\n\tx: " + intervention.getX() + ", y: " + intervention.getY() + "\n\tstep: " + intervention.getStep());
 				

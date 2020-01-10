@@ -1,5 +1,7 @@
 package model;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 import com.google.maps.model.EncodedPolyline;
@@ -20,8 +22,8 @@ public class Intervention {
 		
 		this.id = id;
 		this.speed = speed;
-		this.x = x;
-		this.y = y;
+		this.x = new BigDecimal(x).setScale(4, RoundingMode.HALF_EVEN).doubleValue();
+		this.y = new BigDecimal(y).setScale(4, RoundingMode.HALF_EVEN).doubleValue();
 		this.step = 0;
 		
 		if(route.length() > 1) {
