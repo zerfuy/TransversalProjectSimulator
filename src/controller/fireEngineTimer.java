@@ -1,5 +1,7 @@
 package controller;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -8,18 +10,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.TimerTask;
 
+import com.google.maps.model.LatLng;
+
 import model.Intervention;
 import model.PostgreSQLJDBC;
 
 public class fireEngineTimer extends TimerTask {
 	
 	private int debug = 1;
-	private String Query = "select f.id, route, speed, f.x_pos, f.y_pos from fire_engine f, intervention i where f.id = i.id_fire_engine";
-	private String UpdateQuery = "update fire_engine set x_pos = ?, y_pos = ? where id = ?";
-	private String SimFireEngineQuery = "select id, step, route from fire_engine where step <> 0 and id in (";
-	private String SimFireEngineUpdateQuery = "update fire_engine set step = ?, route = ? where id = ?";
 	private Connection EMConnection;
-	private Connection SimConnection;
 	private List<Intervention> interventions;
 	
 	public void run() {
@@ -32,12 +31,6 @@ public class fireEngineTimer extends TimerTask {
 			
 			EMConnection = PostgreSQLJDBCEM.getConnection();
 			
-			PostgreSQLJDBC PostgreSQLJDBCSim = new PostgreSQLJDBC("jdbc:postgresql://manny.db.elephantsql.com:5432/", 
-					"juynhvrm", 
-					"H-FZ4Jrenwgd_c2Xzte7HLsYJzB_6q5D");
-			
-			SimConnection = PostgreSQLJDBCSim.getConnection();
-			
 			// Getting interventions from em database
 			this.getInterventions();
 			
@@ -46,9 +39,6 @@ public class fireEngineTimer extends TimerTask {
 			
 			System.out.printf("Closing conection with " + PostgreSQLJDBCEM.getUser() + "... ");
 			EMConnection.close();
-			System.out.println("Closed");
-			System.out.printf("Closing conection with " + PostgreSQLJDBCSim.getUser() + "... ");
-			SimConnection.close();
 			System.out.println("Closed");
 			
 		} catch (SQLException e) {
@@ -63,10 +53,9 @@ public class fireEngineTimer extends TimerTask {
 		
 		interventions = new ArrayList<>();
 		
-		List<String> fireEngineIds = new ArrayList<>();
-		
 		try {
 			
+			String Query = "select f.id, route, speed, f.x_pos, f.y_pos from fire_engine f, intervention i where f.id = i.id_fire_engine";
 			PreparedStatement pst = EMConnection.prepareStatement(Query);
 			ResultSet resultSet = pst.executeQuery();
 			
@@ -79,32 +68,7 @@ public class fireEngineTimer extends TimerTask {
 				double y = Double.parseDouble(resultSet.getString("y_pos"));
 				
 				interventions.add(new Intervention(id, route, speed, x, y));
-				fireEngineIds.add(Integer.toString(id));
 				
-			}
-			
-			if(fireEngineIds.size()>0) {
-				String q = SimFireEngineQuery + String.join(",", fireEngineIds) + ")";
-				PreparedStatement pstSim = SimConnection.prepareStatement(q);
-				ResultSet resultSetSim = pstSim.executeQuery();
-				
-				while (resultSetSim.next()) {
-					
-					int id = Integer.parseInt(resultSetSim.getString("id"));
-					String route = resultSetSim.getString("route");
-					int step = Integer.parseInt(resultSetSim.getString("step"));
-					
-					if(route.length() > 1) {
-						for(Intervention intervention : interventions) {
-							if (intervention.getId() == id) {
-								intervention.setRoute(route);
-								intervention.setStep(step);
-								break;
-							}
-						}
-					}
-					
-				}
 			}
 			
 			System.out.println("Got all interventions (" + interventions.size() + ")");
@@ -124,26 +88,44 @@ public class fireEngineTimer extends TimerTask {
 	private void moveFireEngines() {
 		
 		for(Intervention intervention : interventions) {
-			
+		
 			if(intervention.getRoute() != null) {
 				
-				intervention.increaseStep();
+				List<LatLng> route = intervention.getRoute();
+				double lat = 0;
+				double lng = 0;
 				
+				System.out.println(route.get(0));
 				
+				do {		
+					lat = new BigDecimal(route.get(intervention.getSPos()).lat).setScale(4, RoundingMode.HALF_EVEN).doubleValue();
+					lng = new BigDecimal(route.get(intervention.getSPos()).lng).setScale(4, RoundingMode.HALF_EVEN).doubleValue();
+					
+					intervention.increaseSpeed();
+					
+				} while(intervention.getSPos() < route.size() && (Math.abs(lat - intervention.getX()) > 0.0001 || Math.abs(lng - intervention.getY()) > 0.0001));
 				
-				double lat = 0.0;
-				double lng = 0.0;
-				if(intervention.getRoute().size() > intervention.getSpeed() * intervention.getStep()) {
-					lat = intervention.getRoute().get(intervention.getSpeed() * intervention.getStep()).lat;
-					lng = intervention.getRoute().get(intervention.getSpeed() * intervention.getStep()).lng;
+				if(intervention.getSPos() < route.size()) {
+					lat = new BigDecimal(route.get(intervention.getSPos()).lat).setScale(4, RoundingMode.HALF_EVEN).doubleValue();
+					lng = new BigDecimal(route.get(intervention.getSPos()).lng).setScale(4, RoundingMode.HALF_EVEN).doubleValue();	
 				} else {
 					lat = intervention.getRoute().get(intervention.getRoute().size()-1).lat;
 					lng = intervention.getRoute().get(intervention.getRoute().size()-1).lng;
 				}
-				System.out.println("Fire engine " + intervention.getId() + "\n\tlat: " + lat + ", lng: " + lng + "\n\tx: " + intervention.getX() + ", y: " + intervention.getY() + "\n\tstep: " + intervention.getStep());
+				
+				lat = new BigDecimal(lat).setScale(4, RoundingMode.HALF_EVEN).doubleValue();
+				lng = new BigDecimal(lng).setScale(4, RoundingMode.HALF_EVEN).doubleValue();
+				
+				System.out.println();
+				System.out.println("\t" + lat + "\t" + lng);
+				
+				System.out.println("Fire engine " + intervention.getId());
+				System.out.println("\tlat: " + lat + ", lng: " + lng);
+				System.out.println("\tx: " + intervention.getX() + ", y: " + intervention.getY());
 				
 				try {
 					
+					String UpdateQuery = "update fire_engine set x_pos = ?, y_pos = ? where id = ?";
 					PreparedStatement pstUpdate = EMConnection.prepareStatement(UpdateQuery);
 					pstUpdate.setDouble(1, lat);
 					pstUpdate.setDouble(2, lng);
@@ -151,14 +133,6 @@ public class fireEngineTimer extends TimerTask {
 					pstUpdate.executeUpdate();
 					System.out.println("\troute.size() : " + intervention.getRoute().size());
 					System.out.println("\tpstUpdate : " + pstUpdate);
-					
-					
-					PreparedStatement pstUpdateSim = SimConnection.prepareStatement(SimFireEngineUpdateQuery);
-					pstUpdateSim.setInt(1, intervention.getStep());
-					pstUpdateSim.setString(2, intervention.getRouteStr());
-					pstUpdateSim.setInt(3, intervention.getId());
-					pstUpdateSim.executeUpdate();
-					System.out.println("\tpstUpdateSim : " + pstUpdateSim);
 					
 					System.out.println();
 					

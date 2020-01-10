@@ -12,9 +12,9 @@ public class Intervention {
 	private int id;
 	private List<LatLng> route;
 	private int speed;
+	private int sPos;
 	private double x;
 	private double y;
-	private int step;
 	private String routeStr;
 	
 	public Intervention(int id, String route, int speed, double x, double y) {
@@ -22,9 +22,9 @@ public class Intervention {
 		
 		this.id = id;
 		this.speed = speed;
+		this.sPos = 0;
 		this.x = new BigDecimal(x).setScale(4, RoundingMode.HALF_EVEN).doubleValue();
 		this.y = new BigDecimal(y).setScale(4, RoundingMode.HALF_EVEN).doubleValue();
-		this.step = 0;
 		
 		if(route.length() > 1) {
 			EncodedPolyline polyline = new EncodedPolyline(route);
@@ -82,25 +82,21 @@ public class Intervention {
 		this.y = y;
 	}
 	
-	public int getStep() {
-		return this.step;
-	}
-	
-	public void setStep(int step) {
-		this.step = step;
-	}
-	
-	public void increaseStep() {
-		this.step++;
-	}
-	
 	public String getRouteStr() {
 		return this.routeStr;
 	}
 	
+	public void increaseSpeed() {
+		this.sPos += this.speed;
+	}
+	
+	public int getSPos() {
+		return this.sPos;
+	}
+	
 	@Override
 	public String toString() {
-		return "Intervention [id=" + id + ", route: " + (route != null) + ", speed=" + speed + ", x=" + x + ", y=" + y + ", step=" + step + "]";
+		return "Intervention [id=" + id + ", route: " + (route != null) + ", speed=" + speed + ", x=" + x + ", y=" + y + "]";
 	}
 
 }
