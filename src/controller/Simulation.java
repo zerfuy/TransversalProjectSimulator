@@ -8,8 +8,8 @@ public class Simulation {
 		System.out.println("Simulation initialized successfully");
 
 		Timer timer = new Timer();
-		timer.schedule(new fireTimer(), 0, 15000);
-		timer.schedule(new fireEngineTimer(), 0, 15000);
+		timer.schedule(new FireTimer(), 0, 15000);
+		timer.schedule(new FireEngineTimer(), 0, 15000);
 		
 	}
 }

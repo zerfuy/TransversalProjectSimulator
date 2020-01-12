@@ -110,7 +110,16 @@ public class Sensor {
 	}
 	
 	public boolean isOnSite(FireEngine fireEngine) {
-		return fireEngine.getX() == this.x && fireEngine.getY() == this.y;
+		
+		if(Math.abs(fireEngine.getX() - this.x) > 0.0001) {
+			return false;
+		}
+		
+		if(Math.abs(fireEngine.getY() - this.y) > 0.0001) {
+			return false;
+		}
+		
+		return true;
 	}
 
 	@Override

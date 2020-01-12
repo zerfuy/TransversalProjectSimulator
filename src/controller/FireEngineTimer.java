@@ -15,7 +15,7 @@ import com.google.maps.model.LatLng;
 import model.Intervention;
 import model.PostgreSQLJDBC;
 
-public class fireEngineTimer extends TimerTask {
+public class FireEngineTimer extends TimerTask {
 	
 	private int debug = 1;
 	private Connection EMConnection;
@@ -144,4 +144,5 @@ public class fireEngineTimer extends TimerTask {
 		}
 		
 	}
+
 }

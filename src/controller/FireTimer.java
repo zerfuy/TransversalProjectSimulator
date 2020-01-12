@@ -13,19 +13,24 @@ import model.FireEngine;
 import model.PostgreSQLJDBC;
 import model.Sensor;
 
-public class fireTimer extends TimerTask {
+public class FireTimer extends TimerTask {
 
-	int fireFrequency = 120;
+	int fireFrequency = 220;
 	int fireRange = 9;
 	int fireFluctuation = 14;
 	
 	int debug = 1;
 	Random rand = new Random();
+	
 	List<Sensor> emSensors;
 	List<Sensor> simSensors;
 	List<FireEngine> fireEngines;
 	Connection SimulatorConnection;
 	Connection EmergencyManagerConnection;
+	
+	public FireTimer() {
+		
+	}
 	
 	public void run() {
 		
@@ -72,7 +77,7 @@ public class fireTimer extends TimerTask {
 		
     }
 	
-	private void getFireEngines() {
+	public void getFireEngines() {
 		
 		fireEngines = new ArrayList<>();
 		
@@ -106,7 +111,7 @@ public class fireTimer extends TimerTask {
 		
 	}
 	
-	private void getSensors() {
+	public void getSensors() {
 		
 		simSensors = new ArrayList<>();
 		emSensors = new ArrayList<>();
@@ -171,19 +176,16 @@ public class fireTimer extends TimerTask {
 		
 	}
 	
-	private void updateSensors() {
+	public void updateSensors() {
 		
 		try {
 			
 			for(Sensor sensor : simSensors){
 				
-				
-				System.out.println("Managing sensor " + sensor.getId() + " with precise_intensity of " + sensor.getPreciseIntensity());
-				
 				boolean update = false;
 				
 				if(sensor.getIntensity() > 0 ) { // Fire ongoing
-					System.out.println("\tFire is ongoing");
+					System.out.println("\tFire is ongoing for sensor " + sensor.getId());
 					
 					int rankValue = this.getRankOnSite(sensor);
 					float fireIntensity = sensor.getPreciseIntensity();
@@ -196,14 +198,13 @@ public class fireTimer extends TimerTask {
 					
 					
 				} else { // No fire ongoing
-					System.out.println("\tNo fire is ongoing");
 					
 					// Generate fire at random
 					if(rand.nextInt(this.fireFrequency) == 1) {
 						int intensity = this.getRandomFireValue();
 						sensor.setPreciseIntensity(intensity);
 						
-						System.out.println("\tNew fire generated with value " + intensity);
+						System.out.println("\tNew fire generated with value " + intensity + " for sensor " + sensor.getId());
 						update = true;
 					}
 				}
@@ -211,8 +212,8 @@ public class fireTimer extends TimerTask {
 				if(update) {
 					// Update the simulated sensor value if necessary
 					sensor.updateIntensity();
+					System.out.println();
 				}	
-				System.out.println();
 			}			
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -220,16 +221,16 @@ public class fireTimer extends TimerTask {
 		
 	}
 
-	private int getRandomFireValue() {
+	public int getRandomFireValue() {
 		
 		return rand.nextInt(this.fireRange);
 		
 	}
 	
-	private int getRankOnSite(Sensor sensor) {
+	public int getRankOnSite(Sensor sensor) {
 		
 		int rank = 0;
-		
+
 		for(FireEngine fireEngine : fireEngines) {
 			if(sensor.isOnSite(fireEngine)) {
 				rank += fireEngine.getRank();
@@ -241,15 +242,17 @@ public class fireTimer extends TimerTask {
 		return rank;
 	}
 	
-	private float getNewIntensity(int rankValue, float oldFireIntensity) {
+	public float getNewIntensity(int rankValue, float oldFireIntensity) {
 		
-		float rankFireVariation = (float)rankValue / 10;
+		int orderRandVariation = rankValue == 0 ? 5 : 10;
+		
+		float rankFireVariation = (float)rankValue / 5;
 		float intensity = oldFireIntensity - rankFireVariation;
 		
 		System.out.printf("\tOld intensity: " + oldFireIntensity + ", rankFireVariation: " + rankFireVariation);
 		
 		if(intensity > 0) {
-			float randFluctuation = ((float)rand.nextInt(this.fireFluctuation) - (float)this.fireFluctuation / 2) / (9*9) * oldFireIntensity;
+			float randFluctuation = ((float)rand.nextInt(fireFluctuation) - (float)fireFluctuation / 2) / (orderRandVariation*fireRange) * oldFireIntensity;
 			intensity = intensity + randFluctuation;
 			
 			System.out.printf(", randFluctuation: " + randFluctuation);
@@ -263,4 +266,11 @@ public class fireTimer extends TimerTask {
 		return intensity;
 	}
 	
+	public void setEnvironement(List<Sensor> emSensors, List<Sensor> simSensors, List<FireEngine> fireEngines) {
+		
+		this.emSensors = emSensors;
+		this.simSensors = simSensors;
+		this.fireEngines = fireEngines;
+		
+	}
 }
